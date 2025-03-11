@@ -3,5 +3,4 @@ redis==4.0.2
 pytest==6.2.5
 pytest-cov==2.12.1
 black==21.9b0
-snyk==1.1295.4
 ggshield==1.7.0
