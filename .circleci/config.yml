@@ -88,9 +88,39 @@ jobs:
           command: |
             snyk test --all-projects
 
+  # Job para desplegar la imagen Docker a Docker Hub
+  deploy:
+    docker:
+      - image: cimg/base:2024.02  # Imagen base para el job de despliegue
+    steps:
+      # Clonación del código desde GitHub
+      - checkout
+
+      # Configuración de Docker remoto (sin especificar versión)
+      - setup_remote_docker:
+          docker_layer_caching: true  # Habilitar la cache de capas de Docker
+
+      # Construcción de la imagen Docker
+      - run:
+          name: Construir imagen Docker
+          command: |
+            docker build -t $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1 .  # Usa el hash del commit como tag
+
+      # Login en Docker Hub
+      - run:
+          name: Login a Docker Hub
+          command: |
+            echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin  # Login con credenciales
+
+      # Push de la imagen a Docker Hub
+      - run:
+          name: Push imagen a Docker Hub
+          command: |
+            docker push $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1  # Subir la imagen a Docker Hub usando el hash del commit como tag
+
 # Workflow para orquestar los jobs
 workflows:
-  
+  version: 2
   build_and_deploy:
     jobs:
       - build-and-test  # Job de construcción y pruebas
