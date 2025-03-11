@@ -1,0 +1,125 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/python:3.9  # Imagen oficial de Python
+      - image: redis:alpine    # Servicio de Redis
+        name: redis-final       # Nombre del contenedor de Redis
+
+    steps:
+      # Clonación del código desde GitHub
+      - checkout
+
+      # Configuración de Docker remoto
+      - setup_remote_docker:
+          version: 20.10.7
+          docker_layer_caching: true
+
+      # Instalación de dependencias
+      - run:
+          name: Instalar dependencias
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install -r requirements.txt
+            pip install pytest redis
+            pip install pytest-cov
+            pip install --upgrade pytest pytest-cov
+            pip install black
+            pip install ggshield
+
+      # Linting con Black
+      - run:
+          name: Linting del código
+          command: |
+            . venv/bin/activate
+            black --check .  # Revisa si el código está bien formateado
+
+      # Análisis estático de código con GitGuardian
+      - run:
+          name: Análisis estático con GitGuardian
+          command: |
+            ggshield scan path . --json
+
+      # Esperar a que Redis esté listo para la conexión
+      - run:
+          name: Esperar inicio de Redis
+          command: |
+            for i in seq 10; do
+              nc -z localhost 6379 && echo "Redis está listo" && break
+              echo "Esperando Redis..." 
+              sleep 1
+            done
+
+      # Ejecutar pruebas con pytest y generar reportes de cobertura
+      - run:
+          name: Ejecutar pruebas
+          environment:
+            REDIS_HOST: redis-final  # Variable de entorno para Redis
+            REDIS_PORT: 6379         # Puerto de Redis
+          command: |
+            . venv/bin/activate
+            pytest tests/ \
+              --junitxml=test-results/junit.xml \  # Reporte de pruebas en formato JUnit
+              --cov=. \  # Medir la cobertura de las pruebas
+              --cov-report=html:test-results/coverage-html  # Reporte de cobertura en HTML
+
+      # Almacenar resultados de las pruebas
+      - store_test_results:
+          path: test-results
+
+      # Almacenar los artefactos adicionales (por ejemplo, reportes de cobertura)
+      - store_artifacts:
+          path: test-results
+          destination: test-reports
+
+      # Análisis de vulnerabilidades con Snyk
+      - run:
+          name: Análisis de vulnerabilidades con Snyk
+          command: |
+            snyk test --all-projects
+
+  # Job para desplegar la imagen Docker a Docker Hub
+  deploy:
+    docker:
+      - image: cimg/base:2024.02  # Imagen base para el job de despliegue
+    steps:
+      # Clonación del código desde GitHub
+      - checkout
+
+      # Configuración de Docker remoto
+      - setup_remote_docker:
+          version: 20.10.7
+          docker_layer_caching: true
+
+      # Construcción de la imagen Docker
+      - run:
+          name: Construir imagen Docker
+          command: |
+            docker build -t $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1 .  # Usa el hash del commit como tag
+
+      # Login en Docker Hub
+      - run:
+          name: Login a Docker Hub
+          command: |
+            echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin  # Login con credenciales
+
+      # Push de la imagen a Docker Hub
+      - run:
+          name: Push imagen a Docker Hub
+          command: |
+            docker push $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1  # Subir la imagen a Docker Hub usando el hash del commit como tag
+
+# Workflow para orquestar los jobs
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build-and-test  # Job de construcción y pruebas
+      - deploy:  # Job de despliegue
+          requires:
+            - build-and-test  # El despliegue depende de que las pruebas pasen
+          filters:
+            branches:
+              only: main  # Solo ejecutamos deploy en la rama main

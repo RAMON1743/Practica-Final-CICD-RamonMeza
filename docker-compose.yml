@@ -1,0 +1,30 @@
+version: '3.8'  # Utilizamos la versión 3.8 de Docker Compose
+
+services:
+  redis:
+    image: "redis:alpine"  # Usamos la imagen oficial de Redis basada en Alpine
+    container_name: "redis-final"  # Nombre del contenedor de Redis
+    networks:
+      - gestor_tareas_net  # Conexión a la red
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"  # Exponer el puerto de Redis
+
+  flask:
+    build:
+      context: .  # Construir la imagen del contenedor Flask desde el Dockerfile en el directorio actual
+    container_name: "flask_app_ef"  # Nombre del contenedor Flask
+    networks:
+      - gestor_tareas_net  # Conexión a la red
+    ports:
+      - "5001:${APP_PORT}"  # Exponer el puerto 5001 (o el puerto definido por la variable APP_PORT)
+    logging:
+      driver: json-file  # Configuración de logs en formato JSON
+      options:
+        max-size: "10m"  # Tamaño máximo por archivo de log
+        max-file: "3"  # Número máximo de archivos de log
+    depends_on:
+      - redis  # El contenedor Flask depende de Redis para funcionar correctamente
+
+networks:
+  gestor_tareas_net:
+    driver: bridge  # Usamos un controlador de red tipo "bridge"
