@@ -22,11 +22,19 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
+            pip install ggshield  
             pip install pytest redis
             pip install pytest-cov
             pip install --upgrade pytest pytest-cov
             pip install black
-            
+
+      # Verificar si ggshield está accesible
+      - run:
+          name: Verificar si ggshield está accesible
+          command: |
+            . venv/bin/activate
+            which ggshield  # Esto debería imprimir la ruta de ggshield si está correctamente instalado
+            ggshield secret scan path . --recursive  # Ejecuta el escaneo de secretos
 
       # Linting con Black
       - run:
@@ -39,7 +47,8 @@ jobs:
       - run:
           name: Análisis estático con GitGuardian
           command: |
-            ggshield scan path . --json
+            . venv/bin/activate
+            ggshield secret scan path . --recursive  # Ejecuta el escaneo de secretos de forma recursiva
 
       # Esperar a que Redis esté listo para la conexión
       - run:
