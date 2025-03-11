@@ -11,10 +11,9 @@ jobs:
       # Clonación del código desde GitHub
       - checkout
 
-      # Configuración de Docker remoto
+      # Configuración de Docker remoto (sin especificar versión)
       - setup_remote_docker:
-          version: 20.10.7
-          docker_layer_caching: true
+          docker_layer_caching: true  # Habilitar la cache de capas de Docker
 
       # Instalación de dependencias
       - run:
@@ -88,10 +87,9 @@ jobs:
       # Clonación del código desde GitHub
       - checkout
 
-      # Configuración de Docker remoto
+      # Configuración de Docker remoto (sin especificar versión)
       - setup_remote_docker:
-          version: 20.10.7
-          docker_layer_caching: true
+          docker_layer_caching: true  # Habilitar la cache de capas de Docker
 
       # Construcción de la imagen Docker
       - run:
