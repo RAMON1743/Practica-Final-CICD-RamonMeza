@@ -15,40 +15,40 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true  # Habilitar la cache de capas de Docker
 
-      # Instalación de dependencias
+      # Crear el entorno virtual e instalar dependencias
       - run:
-          name: Instalar dependencias
+          name: Crear entorno virtual e instalar dependencias
           command: |
-            python -m venv venv
-            . venv/bin/activate
-            pip install -r requirements.txt
-            pip install ggshield  
-            pip install pytest redis
-            pip install pytest-cov
-            pip install --upgrade pytest pytest-cov
-            pip install black
+            python -m venv venv  # Crear el entorno virtual
+            . venv/bin/activate  # Activar el entorno virtual
+            pip install -r requirements.txt  # Instalar dependencias del proyecto
+            pip install pytest redis  # Instalar pytest y Redis
+            pip install pytest-cov  # Instalar pytest-cov
+            pip install --upgrade pytest pytest-cov  # Actualizar pytest y pytest-cov
+            pip install black  # Instalar black para formateo de código
+            pip install ggshield  # Instalar ggshield
 
-      # Verificar si ggshield está accesible
+      # Verificar entorno virtual
       - run:
-          name: Verificar si ggshield está accesible
+          name: Verificar entorno virtual
           command: |
             . venv/bin/activate
-            which ggshield  # Esto debería imprimir la ruta de ggshield si está correctamente instalado
-            ggshield secret scan path . --recursive  # Ejecuta el escaneo de secretos
+            which python  # Verificar la ruta del ejecutable de Python
+            which pip     # Verificar la ruta de pip
 
       # Linting con Black
       - run:
           name: Linting del código
           command: |
-            . venv/bin/activate
-            black --check .  # Revisa si el código está bien formateado
+            . venv/bin/activate  # Activar entorno virtual
+            black --check .  # Revisar si el código está bien formateado
 
       # Análisis estático de código con GitGuardian
       - run:
           name: Análisis estático con GitGuardian
           command: |
-            . venv/bin/activate
-            ggshield secret scan path . --recursive  # Ejecuta el escaneo de secretos de forma recursiva
+            . venv/bin/activate  # Activar entorno virtual
+            ggshield secret scan path . --recursive --json  # Escanear los secretos
 
       # Esperar a que Redis esté listo para la conexión
       - run:
@@ -67,7 +67,7 @@ jobs:
             REDIS_HOST: redis-final  # Variable de entorno para Redis
             REDIS_PORT: 6379         # Puerto de Redis
           command: |
-            . venv/bin/activate
+            . venv/bin/activate  # Activar entorno virtual
             pytest tests/ \
               --junitxml=test-results/junit.xml \  # Reporte de pruebas en formato JUnit
               --cov=. \  # Medir la cobertura de las pruebas
@@ -88,39 +88,9 @@ jobs:
           command: |
             snyk test --all-projects
 
-  # Job para desplegar la imagen Docker a Docker Hub
-  deploy:
-    docker:
-      - image: cimg/base:2024.02  # Imagen base para el job de despliegue
-    steps:
-      # Clonación del código desde GitHub
-      - checkout
-
-      # Configuración de Docker remoto (sin especificar versión)
-      - setup_remote_docker:
-          docker_layer_caching: true  # Habilitar la cache de capas de Docker
-
-      # Construcción de la imagen Docker
-      - run:
-          name: Construir imagen Docker
-          command: |
-            docker build -t $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1 .  # Usa el hash del commit como tag
-
-      # Login en Docker Hub
-      - run:
-          name: Login a Docker Hub
-          command: |
-            echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin  # Login con credenciales
-
-      # Push de la imagen a Docker Hub
-      - run:
-          name: Push imagen a Docker Hub
-          command: |
-            docker push $DOCKERHUB_USER/$IMAGE_NAME:$CIRCLE_SHA1  # Subir la imagen a Docker Hub usando el hash del commit como tag
-
 # Workflow para orquestar los jobs
 workflows:
-  version: 2
+  
   build_and_deploy:
     jobs:
       - build-and-test  # Job de construcción y pruebas
